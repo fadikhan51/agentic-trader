@@ -1,0 +1,76 @@
+flowchart TB
+  subgraph SRC[1. External sources]
+    EX[Exchanges: Binance, Bybit, OKX<br/>REST + WebSocket via CCXT]
+    NEWS[News: CryptoPanic, RSS, announcements]
+    SOC[Social: X, Reddit]
+    ONC[On-chain: Glassnode, CryptoQuant]
+  end
+  subgraph ING[2. Data layer]
+    COL[Collectors / WebSocket streamers]
+    BUS[(Redis: live cache + message bus)]
+    TSDB[(TimescaleDB: candles, order book, funding)]
+    DOCS[(News/social store)]
+    FEAT[Feature engine: indicators, stats features]
+  end
+  subgraph AG[3. Agent layer - LangGraph]
+    ORC[Orchestrator / scheduler]
+    TA[Technical agent]
+    SA[Sentiment agent - LLM]
+    RA[Regime agent - stats]
+    QA[Quant agent - LightGBM/GARCH]
+    PM[Portfolio manager - LLM + math]
+  end
+  subgraph RISK[4. Safety + execution]
+    RG[Risk gate - pure code<br/>limits, daily loss, kill switch]
+    EXE[Execution engine]
+    PORT[(Positions & balances)]
+  end
+  subgraph LEARN[5. Learning loop]
+    DIARY[(Decision diary / trade log)]
+    SCORE[Agent scorecards]
+    PMORT[Post-mortem agent - LLM]
+    MEM[(Lesson memory - vector DB)]
+    TRAIN[Retrain + backtest<br/>champion vs challenger]
+    REG[(Model & prompt registry)]
+  end
+  subgraph OPS[6. Platform & monitoring]
+    LLM[LLM gateway - LiteLLM]
+    DASH[Dashboard: Grafana]
+    ALERT[Alerts: Slack / Telegram]
+    COLD[(Cold archive: S3 Parquet)]
+  end
+  EX --> COL
+  NEWS --> COL
+  SOC --> COL
+  ONC --> COL
+  COL --> BUS
+  COL --> TSDB
+  COL --> DOCS
+  TSDB --> FEAT
+  FEAT --> BUS
+  BUS --> ORC
+  ORC --> TA & SA & RA & QA
+  FEAT --> TA & QA & RA
+  DOCS --> SA
+  TA & SA & RA & QA --> PM
+  SCORE -.weights.-> PM
+  MEM -.lessons.-> ORC
+  PM --> RG
+  RG -->|approved| EXE
+  RG -->|rejected| DIARY
+  EXE --> EX
+  EXE --> PORT
+  PORT --> RG
+  PM --> DIARY
+  EXE --> DIARY
+  TSDB -->|outcomes| DIARY
+  DIARY --> SCORE & PMORT & TRAIN
+  PMORT --> MEM
+  TRAIN --> REG
+  REG -.models/prompts.-> QA & RA
+  SA & PM & PMORT --> LLM
+  DIARY --> COLD
+  PORT --> DASH
+  SCORE --> DASH
+  RG --> ALERT
+  EXE --> ALERT
